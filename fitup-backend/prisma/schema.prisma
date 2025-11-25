@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum para os 3 níveis de acesso 
+enum Role {
+  ADMIN       // Vamos chamar a Recepcionista de ADMIN ou RECEPTIONIST
+  INSTRUCTOR
+  STUDENT
+}
+
+// Enum para status da matrícula 
+enum EnrollmentStatus {
+  ACTIVE
+  INACTIVE
+  FROZEN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String   // Senha criptografada (hash) 
+  cpf       String?  @unique // Necessário para Aluno 
+  cref      String?  @unique // Necessário para Instrutor 
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  enrollments      Enrollment[] // Matrículas do aluno
+  checkIns         CheckIn[]    // Check-ins do aluno
+  workoutsAsStudent Workout[]   @relation("StudentWorkouts") // Fichas que o aluno possui
+  workoutsCreated   Workout[]   @relation("InstructorWorkouts") // Fichas que o instrutor criou
+
+  @@map("users")
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  name        String   // ex: Mensal, Semestral 
+  price       Float
+  duration    Int      // Duração em meses 
+  createdAt   DateTime @default(now())
+
+  enrollments Enrollment[]
+
+  @@map("plans")
+}
+
+model Enrollment {
+  id        String           @id @default(uuid())
+  userId    String
+  planId    String
+  startDate DateTime         @default(now())
+  endDate   DateTime         // Vencimento calculado automaticamente 
+  status    EnrollmentStatus @default(ACTIVE)
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+
+  @@map("enrollments")
+}
+
+model Workout {
+  id           String   @id @default(uuid())
+  name         String   // ex: "Peito e Tríceps" 
+  description  String?
+  studentId    String   // Dono da ficha
+  instructorId String   // Quem criou a ficha
+  createdAt    DateTime @default(now())
+
+  student    User       @relation("StudentWorkouts", fields: [studentId], references: [id])
+  instructor User       @relation("InstructorWorkouts", fields: [instructorId], references: [id])
+  exercises  Exercise[]
+  checkIns   CheckIn[]
+
+  @@map("workouts")
+}
+
+model Exercise {
+  id        String @id @default(uuid())
+  workoutId String
+  name      String // 
+  sets      Int    // Séries
+  reps      Int    // Repetições
+  notes     String? // Observações/Carga
+
+  workout Workout @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+
+  @@map("exercises")
+}
+
+model CheckIn {
+  id        String   @id @default(uuid())
+  userId    String
+  workoutId String
+  createdAt DateTime @default(now()) // Data/Hora do check-in 
+
+  user    User    @relation(fields: [userId], references: [id])
+  workout Workout @relation(fields: [workoutId], references: [id])
+
+  @@map("check_ins")
+}
