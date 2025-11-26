@@ -1,19 +1,20 @@
+// src/controllers/CheckInController.ts
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { startOfDay, endOfDay } from "date-fns";
-import { createCheckInSchema } from "../utils/schemas";
+import { z } from "zod";
 
 export class CheckInController {
   async create(req: Request, res: Response) {
-    // Pegamos userId do corpo
-    const { workoutId, userId } = createCheckInSchema.parse(req.body);
+    const userId = req.user.id;
+    const { workoutId } = z.object({ workoutId: z.string().uuid() }).parse(req.body);
 
     // 1. Validar matrícula ativa
     const activeEnrollment = await prisma.enrollment.findFirst({
       where: {
         userId,
         status: "ACTIVE",
-        endDate: { gte: new Date() }
+        endDate: { gte: new Date() } // Data de fim maior que hoje
       }
     });
 
@@ -34,7 +35,7 @@ export class CheckInController {
     });
 
     if (checkInExists) {
-      return res.status(400).json({ error: "Aluno já fez check-in hoje!" });
+      return res.status(400).json({ error: "Você já fez check-in hoje!" });
     }
 
     const checkIn = await prisma.checkIn.create({
@@ -45,9 +46,8 @@ export class CheckInController {
   }
 
   async history(req: Request, res: Response) {
-    const { userId } = req.params; // ID pela URL
     const checkIns = await prisma.checkIn.findMany({
-      where: { userId },
+      where: { userId: req.user.id },
       orderBy: { createdAt: "desc" },
       include: { workout: { select: { name: true } } }
     });

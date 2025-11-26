@@ -1,42 +1,38 @@
 import { Router } from "express";
-import { UserController } from "./controllers/UserController";
+import { AuthController } from "./controllers/AuthController";
 import { PlanController } from "./controllers/PlanController";
 import { EnrollmentController } from "./controllers/EnrollmentController";
 import { WorkoutController } from "./controllers/WorkoutController";
 import { CheckInController } from "./controllers/CheckInController";
+import { authMiddleware, roleMiddleware } from "./middlewares/authMiddleware";
 
 const router = Router();
 
-const userController = new UserController();
+const authController = new AuthController();
 const planController = new PlanController();
 const enrollmentController = new EnrollmentController();
 const workoutController = new WorkoutController();
 const checkInController = new CheckInController();
 
-// === USUÁRIOS ===
-router.post("/users", userController.create);
-router.get("/users", userController.list);
-router.get("/users/:id", userController.show);     // NOVO: Ver um user
-router.put("/users/:id", userController.update);   // NOVO: Editar
-router.delete("/users/:id", userController.delete); // NOVO: Deletar
+router.post("/auth/register", authController.register);
 
-// === PLANOS ===
-router.post("/plans", planController.create);
+router.post("/auth/login", authController.login);
+
+router.use(authMiddleware);
+
+router.get("/me", async (req, res) => {
+  return res.json({ user: req.user });
+});
+
+router.post("/plans", roleMiddleware(["ADMIN"]), planController.create);
 router.get("/plans", planController.list);
-router.put("/plans/:id", planController.update);    // NOVO
-router.delete("/plans/:id", planController.delete); // NOVO
 
-// === MATRÍCULAS ===
-router.post("/enrollments", enrollmentController.create);
-// Idealmente teria um PUT /enrollments/:id para cancelar/trancar
+router.post("/enrollments", roleMiddleware(["ADMIN"]), enrollmentController.create);
 
-// === TREINOS ===
-router.post("/workouts", workoutController.create);
-router.get("/workouts/student/:studentId", workoutController.listByStudent);
-router.delete("/workouts/:id", workoutController.delete); // NOVO
+router.post("/workouts", roleMiddleware(["INSTRUCTOR", "ADMIN"]), workoutController.create);
+router.get("/workouts/my", workoutController.listMyWorkouts);
 
-// === CHECK-INS ===
-router.post("/check-ins", checkInController.create);
-router.get("/check-ins/history/:userId", checkInController.history);
+router.post("/check-ins", roleMiddleware(["STUDENT"]), checkInController.create);
+router.get("/check-ins/history", roleMiddleware(["STUDENT"]), checkInController.history);
 
 export { router };
