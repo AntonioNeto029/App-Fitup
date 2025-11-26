@@ -1,4 +1,3 @@
-// src/controllers/EnrollmentController.ts
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { createEnrollmentSchema } from "../utils/schemas";
